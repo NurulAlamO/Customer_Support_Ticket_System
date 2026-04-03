@@ -23,12 +23,6 @@ useEffect(() => {
     .catch(err => console.log("Fetch error:", err));
 }, []);
 
-  // Save to localStorage
-  // useEffect(() => {
-  //   if (tickets.length > 0) {
-  //     localStorage.setItem("tickets", JSON.stringify(tickets));
-  //   }
-  // }, [tickets]);
 
   const handleAddToProgress = (ticket) => {
 
