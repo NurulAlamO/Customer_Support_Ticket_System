@@ -1,5 +1,7 @@
 import React from 'react';
-
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faXTwitter, faLinkedin, faFacebook} from '@fortawesome/free-brands-svg-icons'
+import mailBox from '../../assets/mail.png'
 const Footer = () => {
     return (
       <footer className="bg-base-200 text-base-content p-10">
@@ -33,10 +35,29 @@ const Footer = () => {
           </nav>
           <nav>
             <h1 className="text-2xl font-bold">Social Links</h1>
-            <a className="link link-hover text-gray-400">@CS — Ticket System</a>
-            <a className="link link-hover text-gray-400">@CS — Ticket System</a>
-            <a className="link link-hover text-gray-400">@CS — Ticket System</a>
-            <a className="link link-hover text-gray-400">support@cst.com</a>
+            <a className="link link-hover text-gray-400 gap-2">
+              <FontAwesomeIcon className='bg-white rounded-full 
+              w-auto h-auto flex items-center 
+              justify-center text-black' icon={faXTwitter} />
+              <span className='pl-2'>@CS — Ticket System</span></a>
+            <a className="link link-hover text-gray-400">
+              <FontAwesomeIcon className='bg-white rounded-full 
+               w-auto h-auto flex items-center 
+              justify-center text-black' icon={faLinkedin}/>
+              <span className='pl-2'>@CS — Ticket System</span>
+            </a>
+            <a className="link link-hover text-gray-400">
+              <FontAwesomeIcon className='bg-white rounded-full 
+              w-auto h-auto flex items-center 
+              justify-center text-black' icon={faFacebook} />
+              <span className='pl-2'>@CS — Ticket System</span>
+            </a>
+            <a className="link link-hover text-gray-400  flex items-center 
+              justify-center">
+             <img className='text-black rounded-full 
+              w-auto h-auto ' src={mailBox} alt="" />
+              <span className='pl-2'>support@cst.com</span>
+            </a>
           </nav>
         </section>
         <section className='text-center text-2xl font-semibold'>

@@ -1,7 +1,7 @@
 import React from 'react';
 
 const TaskStatus = ({inProgress, handleComplete}) => {
-    console.log(inProgress)
+    // console.log(inProgress)
     return (
         <div>
             {inProgress.length === 0 ? (

@@ -16,7 +16,7 @@ const TicketCard = ({ticket, handleAddToProgress}) => {
             </div>
             <p className='pt-4'>{ticket.description}</p>
             <div className='flex justify-between pt-4'>
-                <div className='flex gap-4'>
+                <div className='flex gap-2'>
                     <p>{ticket.productId}</p>
                     <h1 className={ticket.priority === "High" ? "text-red-500" :
                             ticket.priority === "Medium" ? "text-yellow-500" :
@@ -24,7 +24,7 @@ const TicketCard = ({ticket, handleAddToProgress}) => {
                     }>
                         {ticket.priority}</h1>
                 </div>
-                <div className='flex gap-4'>
+                <div className='flex gap-2'>
                     <h1>{ticket.name}</h1>
                     <p>{ticket.date}</p>
                 </div>

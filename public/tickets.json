@@ -48,5 +48,205 @@
     "isOpen": false,
     "name": "David Miller",
     "date": "2024-05-22"
+  },
+  {
+    "id": 6,
+    "title": "Signup Error",
+    "description": "Error occurs while creating new account.",
+    "productId": "P-1006",
+    "priority": "High",
+    "isOpen": true,
+    "name": "Olivia Davis",
+    "date": "2024-06-02"
+  },
+  {
+    "id": 7,
+    "title": "Password Reset Issue",
+    "description": "Reset link not working properly.",
+    "productId": "P-1007",
+    "priority": "Medium",
+    "isOpen": true,
+    "name": "Liam Wilson",
+    "date": "2024-06-10"
+  },
+  {
+    "id": 8,
+    "title": "Profile Update Failed",
+    "description": "User unable to update profile information.",
+    "productId": "P-1008",
+    "priority": "Low",
+    "isOpen": false,
+    "name": "Ava Moore",
+    "date": "2024-06-18"
+  },
+  {
+    "id": 9,
+    "title": "Crash on Launch",
+    "description": "App crashes immediately after opening.",
+    "productId": "P-1009",
+    "priority": "High",
+    "isOpen": true,
+    "name": "Noah Taylor",
+    "date": "2024-07-01"
+  },
+  {
+    "id": 10,
+    "title": "Data Sync Problem",
+    "description": "Data not syncing between devices.",
+    "productId": "P-1010",
+    "priority": "Medium",
+    "isOpen": true,
+    "name": "Isabella Anderson",
+    "date": "2024-07-08"
+  },
+  {
+    "id": 11,
+    "title": "Search Not Working",
+    "description": "Search results not showing relevant data.",
+    "productId": "P-1011",
+    "priority": "Low",
+    "isOpen": false,
+    "name": "James Thomas",
+    "date": "2024-07-15"
+  },
+  {
+    "id": 12,
+    "title": "API Timeout",
+    "description": "Backend API taking too long to respond.",
+    "productId": "P-1012",
+    "priority": "High",
+    "isOpen": true,
+    "name": "Mia Jackson",
+    "date": "2024-07-20"
+  },
+  {
+    "id": 13,
+    "title": "Image Upload Failed",
+    "description": "Users cannot upload images.",
+    "productId": "P-1013",
+    "priority": "Medium",
+    "isOpen": true,
+    "name": "Benjamin White",
+    "date": "2024-07-25"
+  },
+  {
+    "id": 14,
+    "title": "Logout Issue",
+    "description": "Users remain logged in after logout.",
+    "productId": "P-1014",
+    "priority": "Low",
+    "isOpen": false,
+    "name": "Charlotte Harris",
+    "date": "2024-08-01"
+  },
+  {
+    "id": 15,
+    "title": "Session Expiry Bug",
+    "description": "Session expires too quickly.",
+    "productId": "P-1015",
+    "priority": "Medium",
+    "isOpen": true,
+    "name": "Lucas Martin",
+    "date": "2024-08-05"
+  },
+  {
+    "id": 16,
+    "title": "Dark Mode Issue",
+    "description": "Dark mode not applying correctly.",
+    "productId": "P-1016",
+    "priority": "Low",
+    "isOpen": false,
+    "name": "Amelia Thompson",
+    "date": "2024-08-10"
+  },
+  {
+    "id": 17,
+    "title": "Security Warning",
+    "description": "App shows false security alerts.",
+    "productId": "P-1017",
+    "priority": "High",
+    "isOpen": true,
+    "name": "Henry Garcia",
+    "date": "2024-08-15"
+  },
+  {
+    "id": 18,
+    "title": "Billing Mismatch",
+    "description": "Incorrect billing amount shown.",
+    "productId": "P-1018",
+    "priority": "Medium",
+    "isOpen": true,
+    "name": "Evelyn Martinez",
+    "date": "2024-08-20"
+  },
+  {
+    "id": 19,
+    "title": "Language Bug",
+    "description": "Translation not working properly.",
+    "productId": "P-1019",
+    "priority": "Low",
+    "isOpen": false,
+    "name": "Daniel Robinson",
+    "date": "2024-08-25"
+  },
+  {
+    "id": 20,
+    "title": "File Download Error",
+    "description": "Files fail to download.",
+    "productId": "P-1020",
+    "priority": "Medium",
+    "isOpen": true,
+    "name": "Harper Clark",
+    "date": "2024-09-01"
+  },
+  {
+    "id": 21,
+    "title": "Map Loading Issue",
+    "description": "Map component not loading.",
+    "productId": "P-1021",
+    "priority": "Low",
+    "isOpen": false,
+    "name": "Sebastian Lewis",
+    "date": "2024-09-05"
+  },
+  {
+    "id": 22,
+    "title": "Chat Not Working",
+    "description": "In-app chat feature is broken.",
+    "productId": "P-1022",
+    "priority": "High",
+    "isOpen": true,
+    "name": "Scarlett Walker",
+    "date": "2024-09-10"
+  },
+  {
+    "id": 23,
+    "title": "Email Not Sending",
+    "description": "System fails to send emails.",
+    "productId": "P-1023",
+    "priority": "Medium",
+    "isOpen": true,
+    "name": "Jack Hall",
+    "date": "2024-09-15"
+  },
+  {
+    "id": 24,
+    "title": "Cache Issue",
+    "description": "Old data still showing after update.",
+    "productId": "P-1024",
+    "priority": "Low",
+    "isOpen": false,
+    "name": "Grace Allen",
+    "date": "2024-09-20"
+  },
+  {
+    "id": 25,
+    "title": "Server Crash",
+    "description": "Server crashes under heavy load.",
+    "productId": "P-1025",
+    "priority": "High",
+    "isOpen": true,
+    "name": "Logan Young",
+    "date": "2024-09-25"
   }
 ]
