@@ -11,18 +11,14 @@ const Navbar = () => {
           CS — Ticket System
         </a>
       </div>
-
-      {/* Right */}
       <div className="flex-none">
         <div className="flex items-center gap-4 sm:gap-6">
-
-          {/* Menu button for small devices */}
           <div className="sm:hidden relative">
             <button
               className="btn btn-ghost"
               onClick={() => setMenuOpen(!menuOpen)}
             >
-              =
+              ☰
             </button>
 
             {menuOpen && (

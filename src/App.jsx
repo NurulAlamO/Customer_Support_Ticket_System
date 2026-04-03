@@ -6,6 +6,7 @@ import TaskCard from './Component/TaskCard/TaskCard'
 import TicketList from './Component/TicketList/TicketList'
 import { ToastContainer, toast } from 'react-toastify';
 import ResolveTask from './Component/ResolveTask/ResolveTask'
+import Footer from './Component/Footer/Footer'
 
 function App() {
 const [tickets, setTickets] = useState([]);
@@ -57,7 +58,7 @@ useEffect(() => {
     <>
       <Navbar></Navbar>
       <Banner inProgress={inProgress} resolved={resolved}></Banner>
-      <div className='flex flex-col md:flex-row p-4 
+      <div className='flex flex-col lg:flex-row p-4 
         gap-4 max-w-[1200px] mx-auto w-full'>
         <div className='flex-1'>
           <TicketList tickets={tickets} 
@@ -72,7 +73,7 @@ useEffect(() => {
           <ResolveTask resolved={resolved}></ResolveTask>
         </div>
       </div>
-      {/* <Footer></Footer> */}
+      <Footer></Footer>
       <ToastContainer></ToastContainer>
     </>
   )
