@@ -1,23 +1,52 @@
-1. What is JSX, and why is it used?
+# Customer Support Ticket System
 
-JSX  is a syntax that lets you write HTML-like code inside JavaScript.
-It makes React components easier to read and write UI.
+This project keeps your previous ticket UI and makes it full-stack with React, Express, and MySQL.
 
-2. Difference between State and Props
-Props → Passed from parent to child (read-only)
-State → Managed inside a component (can change)
+## Features
 
-3. What is useState hook, and how does it work?
-useState is a React hook used to create and manage state in functional components.
-current state value function to update it.
+- Create ticket
+- View open and closed tickets
+- Update status to open or closed
+- Add comments
+- Filter tickets by priority
+
+## Database tables
+
+- `users (id, name, role)`
+- `tickets (id, title, description, priority, isOpen, user_id)`
+- `comments (id, ticket_id, message)`
+
+## MySQL Setup
+
+1. Copy `.env.example` to `.env`.
+2. Add your MySQL credentials in `.env`.
+3. Start the app. The Express server will create the database and tables automatically.
+4. Run `server/seed.sql` in MySQL if you want sample data.
+
 Example:
-const [count, setCount] = useState(0);
 
-4. How can you share state between components?
-Lift state up to a common parent
-Pass it via props to child components Or use Context API / state management tools.
+```sql
+SOURCE server/seed.sql;
+```
 
-5. How is event handling done in React?
-Using camelCase event names and functions.
-Example:
-<button onClick={handleClick}>Click</button>
+## Run
+
+```bash
+npm install
+npm run dev
+```
+
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:5000`
+
+Vite proxies `/api` requests to the backend during development.
+
+## API
+
+- `GET /api/health`
+- `GET /api/users`
+- `GET /api/tickets`
+- `POST /api/tickets`
+- `PATCH /api/tickets/:id/status`
+- `GET /api/tickets/:id/comments`
+- `POST /api/tickets/:id/comments`
