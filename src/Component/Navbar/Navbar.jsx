@@ -3,7 +3,14 @@ import vectorImg from '../../assets/Vector.png';
 
 const links = ['Home', 'FAQ', 'Changelog', 'Blog', 'Download', 'Contact'];
 
-const Navbar = ({ onCreateClick, currentUser, onAuthClick, onLogout }) => {
+const Navbar = ({
+  onCreateClick,
+  currentUser,
+  onAuthClick,
+  onLogout,
+  onAccountClick,
+  onHomeClick,
+}) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const initials = currentUser?.name
@@ -16,9 +23,13 @@ const Navbar = ({ onCreateClick, currentUser, onAuthClick, onLogout }) => {
   return (
     <div className="navbar bg-base-100 shadow-sm max-w-[1200px] mx-auto px-4 sm:px-6 md:px-8 lg:px-12">
       <div className="flex-1">
-        <a className="text-xl font-bold sm:text-lg md:text-xl lg:text-2xl">
+        <button
+          type="button"
+          className="text-left text-xl font-bold sm:text-lg md:text-xl lg:text-2xl"
+          onClick={onHomeClick}
+        >
           CS - Ticket System
-        </a>
+        </button>
       </div>
 
       <div className="flex-none">
@@ -53,9 +64,22 @@ const Navbar = ({ onCreateClick, currentUser, onAuthClick, onLogout }) => {
                     </button>
 
                     {profileOpen ? (
-                      <button className="btn btn-outline mt-2 w-full text-sm" type="button" onClick={onLogout}>
-                        Logout
-                      </button>
+                      <div className="mt-2 space-y-2">
+                        <button
+                          className="btn w-full text-sm rounded-2xl"
+                          type="button"
+                          onClick={() => {
+                            setProfileOpen(false);
+                            setMenuOpen(false);
+                            onAccountClick();
+                          }}
+                        >
+                          Account Settings
+                        </button>
+                        <button className="btn w-full text-sm rounded-2xl" type="button" onClick={onLogout}>
+                          Logout
+                        </button>
+                      </div>
                     ) : null}
                   </div>
                 ) : null}
@@ -118,7 +142,17 @@ const Navbar = ({ onCreateClick, currentUser, onAuthClick, onLogout }) => {
                     <p className="px-3 py-2 text-xs uppercase tracking-wide text-slate-400">User Profile</p>
                     <p className="px-3 text-sm font-semibold text-slate-900">{currentUser.name}</p>
                     <p className="px-3 pb-2 text-xs text-slate-500">{currentUser.email}</p>
-                    <button className="btn btn-outline w-full" type="button" onClick={onLogout}>
+                    <button
+                      className="btn mb-2 w-full rounded-2xl"
+                      type="button"
+                      onClick={() => {
+                        setProfileOpen(false);
+                        onAccountClick();
+                      }}
+                    >
+                      Account Settings
+                    </button>
+                    <button className="btn w-full rounded-2xl" type="button" onClick={onLogout}>
                       Logout
                     </button>
                   </div>

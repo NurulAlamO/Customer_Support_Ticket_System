@@ -9,24 +9,30 @@ const AuthPanel = ({
   submitting,
 }) => {
   const isRegister = mode === 'register';
+  const isForgotPassword = mode === 'forgotPassword';
 
   return (
     <div>
       <h2 className="text-2xl font-bold text-slate-900">
-        {isRegister ? 'Create Your Account' : 'Log In'}
+        {isRegister ? 'Create Your Account' : isForgotPassword ? 'Reset Your Password' : 'Log In'}
       </h2>
       <p className="mt-2 text-sm text-slate-700">
         {isRegister
           ? 'Register to create tickets, add comments, and manage your support requests.'
-          : 'Log in to create tickets, add comments, and manage ticket status.'}
+          : isForgotPassword
+            ? 'Enter your account email and choose a new password to regain access.'
+            : 'Log in to create tickets, add comments, and manage ticket status.'}
       </p>
 
       <form className="mt-6 space-y-4" onSubmit={onSubmit}>
         {isRegister ? (
           <label className="form-control w-full">
-            <span className="label-text mb-2 block font-semibold text-slate-800">Full Name</span>
+            <span className="label-text mb-2 block font-semibold 
+              text-slate-800">Full Name</span>
             <input
-              className="input input-bordered w-full border-slate-300 text-slate-300 placeholder:text-slate-400"
+              className="input input-bordered w-full 
+                border-slate-300 text-slate-300 
+                placeholder:text-slate-400"
               type="text"
               name="name"
               value={formData.name}
@@ -38,9 +44,11 @@ const AuthPanel = ({
         ) : null}
 
         <label className="form-control w-full">
-          <span className="label-text mb-2 block font-semibold text-slate-800">Email</span>
+          <span className="label-text mb-2 block font-semibold 
+            text-slate-800">Email</span>
           <input
-            className="input input-bordered w-full border-slate-300 text-slate-300 placeholder:text-slate-400"
+            className="input input-bordered w-full border-slate-300 
+              text-slate-300 placeholder:text-slate-400"
             type="email"
             name="email"
             value={formData.email}
@@ -51,23 +59,27 @@ const AuthPanel = ({
         </label>
 
         <label className="form-control w-full">
-          <span className="label-text mb-2 block font-semibold text-slate-800">Password</span>
+          <span className="label-text mb-2 block font-semibold 
+            text-slate-800">Password</span>
           <input
-            className="input input-bordered w-full border-slate-300 text-slate-300 placeholder:text-slate-400"
+            className="input input-bordered w-full border-slate-300 
+              text-slate-300 placeholder:text-slate-400"
             type="password"
             name="password"
             value={formData.password}
             onChange={onChange}
-            placeholder="Enter your password"
+            placeholder={isForgotPassword ? 'Enter your new password' : 'Enter your password'}
             required
           />
         </label>
 
         {isRegister ? (
           <label className="form-control w-full">
-            <span className="label-text mb-2 block font-semibold text-slate-800">Role</span>
+            <span className="label-text mb-2 block font-semibold 
+              text-slate-800">Role</span>
             <select
-              className="select select-bordered w-full border-slate-300 text-slate-900"
+              className="select select-bordered w-full 
+                border-slate-300 text-slate-300"
               name="role"
               value={formData.role}
               onChange={onChange}
@@ -78,21 +90,57 @@ const AuthPanel = ({
           </label>
         ) : null}
 
-        <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-slate-700">
-            {isRegister ? 'Already have an account?' : "Don't have an account?"}
-            {' '}
-            <button
-              type="button"
-              className="font-semibold text-sky-700 hover:text-sky-800"
-              onClick={() => onModeChange(isRegister ? 'login' : 'register')}
-            >
-              {isRegister ? 'Log in here' : 'Register here'}
-            </button>
-          </p>
+        <div className="justify-center text-center gap-3 border-t 
+          border-slate-200 pt-4 sm:flex-row sm:items-center 
+            sm:justify-between">
+          <div className="space-y-2 text-sm text-slate-700">
+            
+             {!isRegister ? (
+              <p>
+                Forgot your password?
+                {' '}
+                <button
+                  type="button"
+                  className="font-semibold text-sky-700 hover:text-sky-800"
+                  onClick={() => onModeChange(isForgotPassword ? 'login' : 'forgotPassword')}
+                >
+                  {isForgotPassword ? 'Back to login' : 'Reset'}
+                </button>
+              </p>
+            ) : null}
+            
+            <p>
+              {isRegister
+                ? 'Already have an account?'
+                : isForgotPassword
+                  ? 'Remembered your password?'
+                  : "Don't have an account?"}
+              {' '}
+              <button
+                type="button"
+                className="font-semibold text-sky-700 
+                hover:text-sky-800"
+                onClick={() => onModeChange(isRegister ? 'login' : 'register')}
+              >
+                {isRegister ? 'Log' : isForgotPassword ? 'Log' : 'Register'}
+              </button>
+            </p>
 
-          <button type="submit" className="btn btn-info min-w-32" disabled={submitting}>
-            {submitting ? (isRegister ? 'Creating...' : 'Logging in...') : isRegister ? 'Register' : 'Log In'}
+          </div>
+
+          <button type="submit" className="btn btn-info 
+            min-w-32 mt-3" disabled={submitting}>
+            {submitting
+              ? isRegister
+                ? 'Creating...'
+                : isForgotPassword
+                  ? 'Resetting...'
+                  : 'Logging in...'
+              : isRegister
+                ? 'Register'
+                : isForgotPassword
+                  ? 'Reset Password'
+                  : 'Login'}
           </button>
         </div>
       </form>

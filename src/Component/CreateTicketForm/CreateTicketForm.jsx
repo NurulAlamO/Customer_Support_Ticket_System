@@ -54,7 +54,7 @@ const CreateTicketForm = ({ currentUser, formData, onChange, onSubmit, submittin
             {currentUser ? (
               <>
                 <p className="mt-2 font-semibold text-slate-900">{currentUser.name}</p>
-                <p className="text-sm text-slate-600">{currentUser.email}</p>
+                {/* <p className="text-sm text-slate-600">{currentUser.email}</p> */}
               </>
             ) : (
               <p className="mt-2 text-sm text-slate-500">Log in to create a ticket.</p>
@@ -63,7 +63,8 @@ const CreateTicketForm = ({ currentUser, formData, onChange, onSubmit, submittin
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-4">
-          <p className="text-sm text-slate-500">Fill in the details and create a new customer support ticket.</p>
+          <p className="text-sm text-slate-500">
+            Fill in the details and create a new customer support ticket.</p>
           <button
             type="submit"
             className="btn btn-info min-w-32"

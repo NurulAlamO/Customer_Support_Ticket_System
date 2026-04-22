@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
 const dotenv = require('dotenv');
+const { loadSql } = require('./sql');
 
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
@@ -43,7 +44,7 @@ async function runStatements(statements) {
 }
 
 async function seedDatabaseIfEmpty() {
-  const [[row]] = await pool.query('SELECT COUNT(*) AS totalUsers FROM users');
+  const [[row]] = await pool.query(loadSql('db.countUsers'));
 
   if (Number(row.totalUsers) > 0) {
     return;
@@ -69,49 +70,51 @@ async function syncSampleUserCredentials() {
 
   for (const sampleUser of sampleUsers) {
     await pool.query(
-      `
-        UPDATE users
-        SET
-          email = ?,
-          password_hash = ?
-        WHERE id = ?
-          AND (
-            email = CONCAT('user', id, '@example.com')
-            OR email IS NULL
-            OR email = ''
-          )
-      `,
+      loadSql('db.syncSampleUserCredentials'),
       [sampleUser.email, sampleUser.passwordHash, sampleUser.id],
     );
   }
 }
 
 async function ensureUserAuthColumns() {
-  const [emailColumns] = await pool.query("SHOW COLUMNS FROM users LIKE 'email'");
+  const [emailColumns] = await pool.query(loadSql('db.showEmailColumn'));
   if (!emailColumns.length) {
-    await pool.query('ALTER TABLE users ADD COLUMN email VARCHAR(150) NULL AFTER name');
+    await pool.query(loadSql('db.addEmailColumn'));
   }
 
-  const [passwordColumns] = await pool.query("SHOW COLUMNS FROM users LIKE 'password_hash'");
+  const [passwordColumns] = await pool.query(loadSql('db.showPasswordHashColumn'));
   if (!passwordColumns.length) {
-    await pool.query('ALTER TABLE users ADD COLUMN password_hash VARCHAR(255) NULL AFTER email');
+    await pool.query(loadSql('db.addPasswordHashColumn'));
   }
 
-  await pool.query(
-    "UPDATE users SET email = COALESCE(NULLIF(email, ''), CONCAT('user', id, '@example.com'))",
-  );
-  await pool.query(
-    "UPDATE users SET password_hash = COALESCE(NULLIF(password_hash, ''), ?)",
-    [defaultPasswordHash],
-  );
+  await pool.query(loadSql('db.fillMissingUserEmails'));
+  await pool.query(loadSql('db.fillMissingUserPasswordHashes'), [defaultPasswordHash]);
 
-  const [emailIndexes] = await pool.query("SHOW INDEX FROM users WHERE Key_name = 'idx_users_email_unique'");
+  const [emailIndexes] = await pool.query(loadSql('db.showEmailUniqueIndex'));
   if (!emailIndexes.length) {
-    await pool.query('CREATE UNIQUE INDEX idx_users_email_unique ON users (email)');
+    await pool.query(loadSql('db.createEmailUniqueIndex'));
   }
 
-  await pool.query('ALTER TABLE users MODIFY COLUMN email VARCHAR(150) NOT NULL');
-  await pool.query('ALTER TABLE users MODIFY COLUMN password_hash VARCHAR(255) NOT NULL');
+  await pool.query(loadSql('db.modifyEmailColumnNotNull'));
+  await pool.query(loadSql('db.modifyPasswordHashColumnNotNull'));
+}
+
+async function ensureDatabaseTriggers() {
+  const triggerPairs = [
+    ['db.dropTriggerUsersBeforeInsert', 'db.createTriggerUsersBeforeInsert'],
+    ['db.dropTriggerUsersBeforeUpdate', 'db.createTriggerUsersBeforeUpdate'],
+    ['db.dropTriggerTicketsBeforeInsert', 'db.createTriggerTicketsBeforeInsert'],
+    ['db.dropTriggerTicketsBeforeUpdate', 'db.createTriggerTicketsBeforeUpdate'],
+    ['db.dropTriggerCommentsBeforeInsert', 'db.createTriggerCommentsBeforeInsert'],
+    ['db.dropTriggerCommentsBeforeUpdate', 'db.createTriggerCommentsBeforeUpdate'],
+    ['db.dropTriggerAuthSessionsBeforeInsert', 'db.createTriggerAuthSessionsBeforeInsert'],
+    ['db.dropTriggerUsersAfterPasswordUpdate', 'db.createTriggerUsersAfterPasswordUpdate'],
+  ];
+
+  for (const [dropQueryName, createQueryName] of triggerPairs) {
+    await pool.query(loadSql(dropQueryName));
+    await pool.query(loadSql(createQueryName));
+  }
 }
 
 async function initializeDatabase() {
@@ -125,7 +128,11 @@ async function initializeDatabase() {
   });
 
   try {
-    await adminConnection.query(`CREATE DATABASE IF NOT EXISTS \`${databaseName}\``);
+    const createDatabaseSql = loadSql('db.createDatabase').replace(
+      '`__DATABASE_NAME__`',
+      `\`${databaseName}\``,
+    );
+    await adminConnection.query(createDatabaseSql);
   } finally {
     await adminConnection.end();
   }
@@ -144,6 +151,7 @@ async function initializeDatabase() {
 
   await runStatements(schemaStatements);
   await ensureUserAuthColumns();
+  await ensureDatabaseTriggers();
   await seedDatabaseIfEmpty();
   await syncSampleUserCredentials();
 

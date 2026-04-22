@@ -10,6 +10,7 @@ import Footer from './Component/Footer/Footer';
 import CreateTicketForm from './Component/CreateTicketForm/CreateTicketForm';
 import TicketDetails from './Component/TicketDetails/TicketDetails';
 import AuthPanel from './Component/AuthPanel/AuthPanel';
+import AccountSettings from './Component/AccountSettings/AccountSettings';
 import 'react-toastify/dist/ReactToastify.css';
 
 const authStorageKey = 'ticket-system-auth-token';
@@ -25,6 +26,11 @@ const initialAuthForm = {
   email: '',
   password: '',
   role: 'Customer',
+};
+
+const initialProfileForm = {
+  name: '',
+  email: '',
 };
 
 const priorityOptions = new Set(['High', 'Medium', 'Low']);
@@ -55,6 +61,10 @@ function App() {
   const [submittingTicket, setSubmittingTicket] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [submittingAuth, setSubmittingAuth] = useState(false);
+  const [profileForm, setProfileForm] = useState(initialProfileForm);
+  const [submittingProfile, setSubmittingProfile] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [currentPage, setCurrentPage] = useState('dashboard');
   const formRef = useRef(null);
   const authRef = useRef(null);
 
@@ -89,12 +99,16 @@ function App() {
         const data = await parseJson(
           await fetch('/api/auth/me', {
             headers: {
-              ...getAuthHeaders(),
+              Authorization: `Bearer ${authToken}`,
             },
           }),
           'Unable to load your account.',
         );
         setCurrentUser(data);
+        setProfileForm({
+          name: data.name || '',
+          email: data.email || '',
+        });
       } catch {
         localStorage.removeItem(authStorageKey);
         setAuthToken('');
@@ -198,19 +212,37 @@ function App() {
     }));
   }
 
+  function handleProfileFormChange(event) {
+    const { name, value } = event.target;
+    setProfileForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  }
+
   async function handleAuthSubmit(event) {
     event.preventDefault();
     setSubmittingAuth(true);
 
     try {
-      const endpoint = authMode === 'register' ? '/api/auth/register' : '/api/auth/login';
+      const endpoint =
+        authMode === 'register'
+          ? '/api/auth/register'
+          : authMode === 'forgotPassword'
+            ? '/api/auth/forgot-password'
+            : '/api/auth/login';
       const payload =
         authMode === 'register'
           ? authForm
-          : {
-              email: authForm.email,
-              password: authForm.password,
-            };
+          : authMode === 'forgotPassword'
+            ? {
+                email: authForm.email,
+                newPassword: authForm.password,
+              }
+            : {
+                email: authForm.email,
+                password: authForm.password,
+              };
 
       const data = await parseJson(
         await fetch(endpoint, {
@@ -220,24 +252,39 @@ function App() {
           },
           body: JSON.stringify(payload),
         }),
-        authMode === 'register' ? 'Failed to register.' : 'Failed to log in.',
+        authMode === 'register'
+          ? 'Failed to register.'
+          : authMode === 'forgotPassword'
+            ? 'Failed to reset password.'
+            : 'Failed to log in.',
       );
+
+      setAuthForm(initialAuthForm);
+
+      if (authMode === 'forgotPassword') {
+        setAuthMode('login');
+        toast.success(data.message || 'Password reset successful.');
+        return;
+      }
 
       localStorage.setItem(authStorageKey, data.token);
       setAuthToken(data.token);
       setCurrentUser(data.user);
+      setProfileForm({
+        name: data.user.name || '',
+        email: data.user.email || '',
+      });
+      setCurrentPage('dashboard');
       setPriorityFilter('All');
       setSelectedTicketId(null);
-      setAuthForm(initialAuthForm);
       setTicketForm(initialTicketForm);
       toast.success(authMode === 'register' ? 'Account created successfully.' : 'Logged in successfully.');
     } catch (error) {
-      toast.error(error.message);
+      toast(error.message);
     } finally {
       setSubmittingAuth(false);
     }
   }
-
   async function handleLogout() {
     try {
       if (authToken) {
@@ -252,9 +299,83 @@ function App() {
       localStorage.removeItem(authStorageKey);
       setAuthToken('');
       setCurrentUser(null);
+      setProfileForm(initialProfileForm);
       setPriorityFilter('All');
       setSelectedTicketId(null);
+      setAuthMode('login');
+      setCurrentPage('dashboard');
       toast.success('Logged out successfully.');
+    }
+  }
+
+  async function handleProfileSubmit(event) {
+    event.preventDefault();
+    setSubmittingProfile(true);
+
+    try {
+      const data = await parseJson(
+        await fetch('/api/account/profile', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders(),
+          },
+          body: JSON.stringify(profileForm),
+        }),
+        'Failed to update profile.',
+      );
+
+      setCurrentUser(data);
+      setProfileForm({
+        name: data.name || '',
+        email: data.email || '',
+      });
+      setCurrentPage('dashboard');
+      toast.success('Profile updated successfully.');
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setSubmittingProfile(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    const confirmed = window.confirm(
+      'Are you sure you want to delete your account? This will also remove your tickets and comments.',
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingAccount(true);
+
+    try {
+      await parseJson(
+        await fetch('/api/account', {
+          method: 'DELETE',
+          headers: {
+            ...getAuthHeaders(),
+          },
+        }),
+        'Failed to delete account.',
+      );
+
+      localStorage.removeItem(authStorageKey);
+      setAuthToken('');
+      setCurrentUser(null);
+      setProfileForm(initialProfileForm);
+      setComments([]);
+      setTickets([]);
+      setSelectedTicketId(null);
+      setAuthMode('login');
+      setAuthForm(initialAuthForm);
+      setCurrentPage('dashboard');
+      toast.success('Your account has been deleted.');
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setDeletingAccount(false);
     }
   }
 
@@ -388,13 +509,26 @@ function App() {
     authRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  function openAccountPage() {
+    setCurrentPage('account');
+  }
+
+  function openDashboardPage() {
+    setCurrentPage('dashboard');
+  }
+
   if (checkingAuth) {
     return (
       <>
-        <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-            <h1 className="text-2xl font-bold text-slate-900">Checking Your Session</h1>
-            <p className="mt-3 text-slate-500">Please wait while we sign you in.</p>
+        <main className="flex min-h-screen items-center 
+          justify-center bg-slate-100 px-4">
+          <div className="w-full max-w-md rounded-3xl 
+            border border-slate-200 bg-white p-8 
+            text-center shadow-sm">
+            <h1 className="text-2xl font-bold 
+              text-slate-900">Checking Your Session</h1>
+            <p className="mt-3 text-slate-500">
+              Please wait while we sign you in.</p>
           </div>
         </main>
         <ToastContainer position="bottom-right" />
@@ -405,11 +539,22 @@ function App() {
   if (!currentUser) {
     return (
       <>
+      <Navbar
+          onCreateClick={scrollToCreateForm}
+          currentUser={currentUser}
+          onAuthClick={scrollToAuthForm}
+          onLogout={handleLogout}
+          onAccountClick={openAccountPage}
+          onHomeClick={openDashboardPage}
+        />
         <main className="min-h-screen bg-slate-100 px-4 py-10">
-          <div className="mx-auto grid max-w-[1100px] gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-            <section className="rounded-[32px] bg-gradient-to-br from-sky-900 via-sky-700
+          <div className="mx-auto grid max-w-[1100px] 
+            gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+            <section className="rounded-[32px] bg-gradient-to-br 
+              from-sky-900 via-sky-700
               to-emerald-500 p-8 text-white shadow-xl">
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-100">
+              <p className="text-sm font-semibold uppercase 
+                tracking-[0.2em] text-sky-100">
                 Customer Support Ticket System
               </p>
               <h1 className="mt-4 text-4xl font-bold leading-tight">
@@ -421,24 +566,31 @@ function App() {
               </p>
 
               <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                <div className="rounded-2xl bg-white/16 p-4 backdrop-blur-sm">
+                <div className="rounded-2xl bg-white/16 p-4 
+                  backdrop-blur-sm">
                   <p className="text-3xl font-bold">24/7</p>
-                  <p className="mt-2 text-sm text-white">Track tickets anytime</p>
+                  <p className="mt-2 text-sm 
+                    text-white">Track tickets anytime</p>
                 </div>
-                <div className="rounded-2xl bg-white/16 p-4 backdrop-blur-sm">
+                <div className="rounded-2xl bg-white/16 
+                  p-4 backdrop-blur-sm">
                   <p className="text-3xl font-bold">3</p>
-                  <p className="mt-2 text-sm text-white">Priority levels supported</p>
+                  <p className="mt-2 text-sm text-white">
+                    Priority levels supported</p>
                 </div>
-                <div className="rounded-2xl bg-white/16 p-4 backdrop-blur-sm">
+                <div className="rounded-2xl bg-white/16 p-4 
+                  backdrop-blur-sm">
                   <p className="text-3xl font-bold">1</p>
-                  <p className="mt-2 text-sm text-white">Shared support workspace</p>
+                  <p className="mt-2 text-sm 
+                    text-white">Shared support workspace</p>
                 </div>
               </div>
             </section>
 
             <section
               ref={authRef}
-              className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-lg sm:p-8"
+              className="rounded-[32px] border border-slate-200 
+              bg-white p-6 shadow-lg sm:p-8"
             >
               <AuthPanel
                 mode={authMode}
@@ -456,6 +608,32 @@ function App() {
     );
   }
 
+  if (currentPage === 'account') {
+    return (
+      <>
+        <Navbar
+          onCreateClick={scrollToCreateForm}
+          currentUser={currentUser}
+          onAuthClick={scrollToAuthForm}
+          onLogout={handleLogout}
+          onAccountClick={openAccountPage}
+          onHomeClick={openDashboardPage}
+        />
+        <AccountSettings
+          currentUser={currentUser}
+          formData={profileForm}
+          onChange={handleProfileFormChange}
+          onSubmit={handleProfileSubmit}
+          onDeleteAccount={handleDeleteAccount}
+          onBack={openDashboardPage}
+          submittingProfile={submittingProfile}
+          deletingAccount={deletingAccount}
+        />
+        <ToastContainer position="bottom-right" />
+      </>
+    );
+  }
+
   return (
     <>
       <Navbar
@@ -463,21 +641,28 @@ function App() {
         currentUser={currentUser}
         onAuthClick={scrollToAuthForm}
         onLogout={handleLogout}
+        onAccountClick={openAccountPage}
+        onHomeClick={openDashboardPage}
       />
       <Banner inProgress={openTickets} resolved={closedTickets} />
 
       <main className="mx-auto max-w-[1200px] space-y-8 px-4 pb-10">
-        <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <section className="rounded-3xl border border-slate-200 
+          bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row 
+            md:items-center md:justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">Customer Support Tickets</h1>
+              <h1 className="text-2xl font-bold text-slate-900">
+                Customer Support Tickets</h1>
               <p className="text-sm text-slate-500">
                 Track support requests, update statuses, and manage comments from one place.
               </p>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-600">
+            <div className="flex flex-col gap-3 sm:flex-row 
+              sm:items-center">
+              <label className="flex items-center gap-2 text-sm 
+                font-medium text-slate-600">
                 Priority
                 <select
                   value={priorityFilter}
@@ -491,7 +676,8 @@ function App() {
                 </select>
               </label>
 
-              <button type="button" className="btn btn-outline btn-sm" onClick={refreshTickets}>
+              <button type="button" className="btn btn-outline 
+                btn-sm" onClick={refreshTickets}>
                 Refresh
               </button>
             </div>
@@ -499,7 +685,8 @@ function App() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[1.45fr_0.85fr]">
-          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="rounded-3xl border border-slate-200 
+            bg-white p-4 shadow-sm">
             <TicketList
               tickets={tickets}
               loading={loadingTickets}
@@ -507,9 +694,9 @@ function App() {
               handleAddToProgress={handleSelectTicket}
             />
           </div>
-
           <div className="space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="rounded-3xl border border-slate-200 
+              bg-white shadow-sm">
               <TaskCard
                 handleComplete={(ticketId) => handleUpdateTicketStatus(ticketId, false)}
                 inProgress={openTickets}
@@ -518,7 +705,8 @@ function App() {
               />
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div className="rounded-3xl border border-slate-200 
+              bg-white shadow-sm">
               <ResolveTask
                 resolved={closedTickets}
                 activeTicketId={selectedTicketId}
@@ -530,7 +718,8 @@ function App() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-2">
-          <div ref={formRef} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div ref={formRef} className="rounded-3xl border 
+            border-slate-200 bg-white p-6 shadow-sm">
             <CreateTicketForm
               currentUser={currentUser}
               formData={ticketForm}
@@ -540,7 +729,8 @@ function App() {
             />
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-slate-200 
+            bg-white p-6 shadow-sm">
             <TicketDetails
               ticket={selectedTicket}
               currentUser={currentUser}
@@ -554,6 +744,7 @@ function App() {
             />
           </div>
         </section>
+
       </main>
 
       <Footer />

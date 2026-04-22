@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 const { getPool, initializeDatabase } = require('./db');
+const { loadSql } = require('./sql');
 const {
   generateSessionToken,
   hashPassword,
@@ -32,17 +33,7 @@ async function getAuthenticatedUser(req) {
 
   const tokenHash = hashValue(token);
   const [rows] = await getPool().query(
-    `
-      SELECT
-        u.id,
-        u.name,
-        u.email,
-        u.role
-      FROM auth_sessions s
-      JOIN users u ON u.id = s.user_id
-      WHERE s.token_hash = ?
-      LIMIT 1
-    `,
+    loadSql('auth.getAuthenticatedUser'),
     [tokenHash],
   );
 
@@ -69,7 +60,7 @@ async function createSessionForUser(user) {
   const tokenHash = hashValue(token);
 
   await getPool().query(
-    'INSERT INTO auth_sessions (user_id, token_hash) VALUES (?, ?)',
+    loadSql('auth.createSession'),
     [user.id, tokenHash],
   );
 
@@ -79,9 +70,14 @@ async function createSessionForUser(user) {
   };
 }
 
+async function getUserById(userId) {
+  const [rows] = await getPool().query(loadSql('users.getUserById'), [userId]);
+  return rows[0] || null;
+}
+
 app.get('/api/health', async (_req, res) => {
   try {
-    await getPool().query('SELECT 1');
+    await getPool().query(loadSql('auth.healthCheck'));
     res.json({ ok: true, message: 'API and database are connected.' });
   } catch (error) {
     res.status(500).json({ ok: false, message: error.message });
@@ -113,7 +109,7 @@ app.post('/api/auth/register', async (req, res) => {
 
   try {
     const [existingUsers] = await getPool().query(
-      'SELECT id FROM users WHERE email = ? LIMIT 1',
+      loadSql('auth.findUserByEmail'),
       [normalizedEmail],
     );
 
@@ -122,10 +118,7 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     const [result] = await getPool().query(
-      `
-        INSERT INTO users (name, email, password_hash, role)
-        VALUES (?, ?, ?, ?)
-      `,
+      loadSql('auth.registerUser'),
       [trimmedName, normalizedEmail, hashPassword(password), role],
     );
 
@@ -152,12 +145,7 @@ app.post('/api/auth/login', async (req, res) => {
 
   try {
     const [rows] = await getPool().query(
-      `
-        SELECT id, name, email, password_hash AS passwordHash, role
-        FROM users
-        WHERE email = ?
-        LIMIT 1
-      `,
+      loadSql('auth.loginUserByEmail'),
       [normalizedEmail],
     );
 
@@ -167,7 +155,7 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
-    await getPool().query('DELETE FROM auth_sessions WHERE user_id = ?', [user.id]);
+    await getPool().query(loadSql('auth.deleteSessionsByUserId'), [user.id]);
 
     res.json(
       await createSessionForUser({
@@ -187,17 +175,85 @@ app.post('/api/auth/logout', requireAuth, async (req, res) => {
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
 
   try {
-    await getPool().query('DELETE FROM auth_sessions WHERE token_hash = ?', [hashValue(token)]);
+    await getPool().query(loadSql('auth.deleteSessionByTokenHash'), [hashValue(token)]);
     res.json({ ok: true, message: 'Logged out successfully.' });
   } catch (error) {
     res.status(500).json({ message: 'Failed to log out.', error: error.message });
   }
 });
 
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { email = '', newPassword = '' } = req.body;
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!normalizedEmail || !newPassword.trim()) {
+    return res.status(400).json({ message: 'Email and new password are required.' });
+  }
+
+  try {
+    const [rows] = await getPool().query(loadSql('auth.findUserByEmailForReset'), [normalizedEmail]);
+    const user = rows[0];
+
+    if (!user) {
+      return res.status(404).json({ message: 'No account was found for that email.' });
+    }
+
+    await getPool().query(loadSql('auth.resetPasswordByEmail'), [
+      hashPassword(newPassword),
+      normalizedEmail,
+    ]);
+
+    res.json({ ok: true, message: 'Password reset successful. Please log in with your new password.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to reset password.', error: error.message });
+  }
+});
+
+app.patch('/api/account/profile', requireAuth, async (req, res) => {
+  const { name = '', email = '' } = req.body;
+  const trimmedName = name.trim();
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!trimmedName || !normalizedEmail) {
+    return res.status(400).json({ message: 'Name and email are required.' });
+  }
+
+  try {
+    const [rows] = await getPool().query(loadSql('users.findOtherUserByEmail'), [
+      normalizedEmail,
+      req.user.id,
+    ]);
+
+    if (rows.length) {
+      return res.status(409).json({ message: 'Another account is already using that email.' });
+    }
+
+    await getPool().query(loadSql('users.updateProfile'), [
+      trimmedName,
+      normalizedEmail,
+      req.user.id,
+    ]);
+
+    const updatedUser = await getUserById(req.user.id);
+    res.json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update profile.', error: error.message });
+  }
+});
+
+app.delete('/api/account', requireAuth, async (req, res) => {
+  try {
+    await getPool().query(loadSql('users.deleteUserById'), [req.user.id]);
+    res.json({ ok: true, message: 'Your account has been deleted.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to delete account.', error: error.message });
+  }
+});
+
 app.get('/api/users', async (_req, res) => {
   try {
     const [rows] = await getPool().query(
-      'SELECT id, name, email, role FROM users ORDER BY name ASC',
+      loadSql('users.listUsers'),
     );
     res.json(rows);
   } catch (error) {
@@ -228,28 +284,12 @@ app.get('/api/tickets', async (req, res) => {
   const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
 
   try {
+    const listTicketsSql = loadSql('tickets.listTickets').replace(
+      '/*__WHERE_CLAUSE__*/',
+      whereClause,
+    );
     const [rows] = await getPool().query(
-      `
-        SELECT
-          t.id,
-          t.title,
-          t.description,
-          t.priority,
-          t.isOpen,
-          t.user_id AS userId,
-          t.created_at AS createdAt,
-          u.name AS userName,
-          u.role AS userRole,
-          COUNT(c.id) AS commentsCount
-        FROM tickets t
-        JOIN users u ON u.id = t.user_id
-        LEFT JOIN comments c ON c.ticket_id = t.id
-        ${whereClause}
-        GROUP BY t.id, u.name, u.role
-        ORDER BY
-          FIELD(t.priority, 'High', 'Medium', 'Low'),
-          t.created_at DESC
-      `,
+      listTicketsSql,
       values,
     );
 
@@ -272,30 +312,12 @@ app.post('/api/tickets', requireAuth, async (req, res) => {
 
   try {
     const [result] = await getPool().query(
-      `
-        INSERT INTO tickets (title, description, priority, isOpen, user_id)
-        VALUES (?, ?, ?, TRUE, ?)
-      `,
+      loadSql('tickets.createTicket'),
       [title, description, priority, req.user.id],
     );
 
     const [[ticket]] = await getPool().query(
-      `
-        SELECT
-          t.id,
-          t.title,
-          t.description,
-          t.priority,
-          t.isOpen,
-          t.user_id AS userId,
-          t.created_at AS createdAt,
-          u.name AS userName,
-          u.role AS userRole,
-          0 AS commentsCount
-        FROM tickets t
-        JOIN users u ON u.id = t.user_id
-        WHERE t.id = ?
-      `,
+      loadSql('tickets.getTicketById'),
       [result.insertId],
     );
 
@@ -315,7 +337,7 @@ app.patch('/api/tickets/:id/status', requireAuth, async (req, res) => {
 
   try {
     const [result] = await getPool().query(
-      'UPDATE tickets SET isOpen = ? WHERE id = ?',
+      loadSql('tickets.updateTicketStatus'),
       [isOpen, id],
     );
 
@@ -324,24 +346,7 @@ app.patch('/api/tickets/:id/status', requireAuth, async (req, res) => {
     }
 
     const [[ticket]] = await getPool().query(
-      `
-        SELECT
-          t.id,
-          t.title,
-          t.description,
-          t.priority,
-          t.isOpen,
-          t.user_id AS userId,
-          t.created_at AS createdAt,
-          u.name AS userName,
-          u.role AS userRole,
-          COUNT(c.id) AS commentsCount
-        FROM tickets t
-        JOIN users u ON u.id = t.user_id
-        LEFT JOIN comments c ON c.ticket_id = t.id
-        WHERE t.id = ?
-        GROUP BY t.id, u.name, u.role
-      `,
+      loadSql('tickets.getTicketWithCommentsCountById'),
       [id],
     );
 
@@ -356,12 +361,7 @@ app.get('/api/tickets/:id/comments', async (req, res) => {
 
   try {
     const [rows] = await getPool().query(
-      `
-        SELECT id, ticket_id AS ticketId, message, created_at AS createdAt
-        FROM comments
-        WHERE ticket_id = ?
-        ORDER BY created_at DESC, id DESC
-      `,
+      loadSql('comments.listCommentsByTicketId'),
       [id],
     );
     res.json(rows);
@@ -379,23 +379,19 @@ app.post('/api/tickets/:id/comments', requireAuth, async (req, res) => {
   }
 
   try {
-    const [[ticket]] = await getPool().query('SELECT id FROM tickets WHERE id = ?', [id]);
+    const [[ticket]] = await getPool().query(loadSql('tickets.findTicketById'), [id]);
 
     if (!ticket) {
       return res.status(404).json({ message: 'Ticket not found.' });
     }
 
     const [result] = await getPool().query(
-      'INSERT INTO comments (ticket_id, message) VALUES (?, ?)',
+      loadSql('comments.createComment'),
       [id, message.trim()],
     );
 
     const [[comment]] = await getPool().query(
-      `
-        SELECT id, ticket_id AS ticketId, message, created_at AS createdAt
-        FROM comments
-        WHERE id = ?
-      `,
+      loadSql('comments.getCommentById'),
       [result.insertId],
     );
 
@@ -417,6 +413,9 @@ if (fs.existsSync(distPath)) {
   });
 }
 
+
+
+// server
 async function startServer() {
   try {
     await initializeDatabase();
