@@ -56,22 +56,31 @@ async function seedDatabaseIfEmpty() {
 
 async function syncSampleUserCredentials() {
   const sampleUsers = [
-    { id: 1, email: 'john@example.com', passwordHash: defaultPasswordHash },
-    { id: 2, email: 'emma@example.com', passwordHash: defaultPasswordHash },
-    { id: 3, email: 'michael@example.com', passwordHash: defaultPasswordHash },
-    { id: 4, email: 'sophia@example.com', passwordHash: defaultPasswordHash },
-    { id: 5, email: 'olivia@example.com', passwordHash: defaultPasswordHash },
+    { id: 1, name: 'John Smith', email: 'john@example.com', passwordHash: defaultPasswordHash, role: 'Customer' },
+    { id: 2, name: 'Emma Johnson', email: 'emma@example.com', passwordHash: defaultPasswordHash, role: 'Customer' },
+    { id: 3, name: 'Michael Brown', email: 'michael@example.com', passwordHash: defaultPasswordHash, role: 'Customer' },
+    { id: 4, name: 'Sophia Williams', email: 'sophia@example.com', passwordHash: defaultPasswordHash, role: 'Customer' },
+    { id: 5, name: 'Olivia Davis', email: 'olivia@example.com', passwordHash: defaultPasswordHash, role: 'Customer' },
     {
       id: 6,
+      name: 'Support Agent',
       email: 'support@example.com',
       passwordHash: 'sha256:a67d22cef2f6639d71b8901b5b2bbee4a2400d92c70e60c179c0fd76d72d6c23',
+      role: 'Support',
+    },
+    {
+      id: 7,
+      name: 'System Admin',
+      email: 'admin@example.com',
+      passwordHash: 'sha256:240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9',
+      role: 'Admin',
     },
   ];
 
   for (const sampleUser of sampleUsers) {
     await pool.query(
-      loadSql('db.syncSampleUserCredentials'),
-      [sampleUser.email, sampleUser.passwordHash, sampleUser.id],
+      loadSql('db.upsertSeedUser'),
+      [sampleUser.id, sampleUser.name, sampleUser.email, sampleUser.passwordHash, sampleUser.role],
     );
   }
 }

@@ -18,7 +18,6 @@ const app = express();
 const PORT = Number(process.env.PORT || 5000);
 const distPath = path.join(__dirname, '..', 'dist');
 const validPriorities = new Set(['High', 'Medium', 'Low']);
-const validRoles = new Set(['Customer', 'Support']);
 
 app.use(cors());
 app.use(express.json());
@@ -70,6 +69,42 @@ async function createSessionForUser(user) {
   };
 }
 
+function isSupportUser(user) {
+  return user?.role === 'Support';
+}
+
+function isAdminUser(user) {
+  return user?.role === 'Admin';
+}
+
+function isStaffUser(user) {
+  return isSupportUser(user) || isAdminUser(user);
+}
+
+function canAccessTicket(user, ticket) {
+  if (!user || !ticket) {
+    return false;
+  }
+
+  return isStaffUser(user) || Number(ticket.userId) === Number(user.id);
+}
+
+async function requireSupport(req, res, next) {
+  if (!isStaffUser(req.user)) {
+    return res.status(403).json({ message: 'Staff access is required for this action.' });
+  }
+
+  return next();
+}
+
+async function requireAdmin(req, res, next) {
+  if (!isAdminUser(req.user)) {
+    return res.status(403).json({ message: 'Admin access is required for this action.' });
+  }
+
+  return next();
+}
+
 async function getUserById(userId) {
   const [rows] = await getPool().query(loadSql('users.getUserById'), [userId]);
   return rows[0] || null;
@@ -93,7 +128,6 @@ app.post('/api/auth/register', async (req, res) => {
     name = '',
     email = '',
     password = '',
-    role = 'Customer',
   } = req.body;
 
   const trimmedName = name.trim();
@@ -101,10 +135,6 @@ app.post('/api/auth/register', async (req, res) => {
 
   if (!trimmedName || !normalizedEmail || !password.trim()) {
     return res.status(400).json({ message: 'Name, email, and password are required.' });
-  }
-
-  if (!validRoles.has(role)) {
-    return res.status(400).json({ message: 'Role must be Customer or Support.' });
   }
 
   try {
@@ -119,14 +149,14 @@ app.post('/api/auth/register', async (req, res) => {
 
     const [result] = await getPool().query(
       loadSql('auth.registerUser'),
-      [trimmedName, normalizedEmail, hashPassword(password), role],
+      [trimmedName, normalizedEmail, hashPassword(password), 'Customer'],
     );
 
     const user = {
       id: result.insertId,
       name: trimmedName,
       email: normalizedEmail,
-      role,
+      role: 'Customer',
     };
 
     res.status(201).json(await createSessionForUser(user));
@@ -198,6 +228,10 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       return res.status(404).json({ message: 'No account was found for that email.' });
     }
 
+    if (isStaffUser(user)) {
+      return res.status(403).json({ message: 'Staff passwords are managed by the developer.' });
+    }
+
     await getPool().query(loadSql('auth.resetPasswordByEmail'), [
       hashPassword(newPassword),
       normalizedEmail,
@@ -216,6 +250,10 @@ app.patch('/api/account/profile', requireAuth, async (req, res) => {
 
   if (!trimmedName || !normalizedEmail) {
     return res.status(400).json({ message: 'Name and email are required.' });
+  }
+
+  if (isStaffUser(req.user) && normalizedEmail !== req.user.email) {
+    return res.status(403).json({ message: 'Staff login emails are managed by the developer.' });
   }
 
   try {
@@ -242,6 +280,10 @@ app.patch('/api/account/profile', requireAuth, async (req, res) => {
 });
 
 app.delete('/api/account', requireAuth, async (req, res) => {
+  if (isStaffUser(req.user)) {
+    return res.status(403).json({ message: 'Staff accounts can only be managed by the developer.' });
+  }
+
   try {
     await getPool().query(loadSql('users.deleteUserById'), [req.user.id]);
     res.json({ ok: true, message: 'Your account has been deleted.' });
@@ -250,7 +292,7 @@ app.delete('/api/account', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/api/users', async (_req, res) => {
+app.get('/api/users', requireAuth, requireAdmin, async (_req, res) => {
   try {
     const [rows] = await getPool().query(
       loadSql('users.listUsers'),
@@ -261,7 +303,7 @@ app.get('/api/users', async (_req, res) => {
   }
 });
 
-app.get('/api/tickets', async (req, res) => {
+app.get('/api/tickets', requireAuth, async (req, res) => {
   const { priority = 'All', status = 'all' } = req.query;
   const filters = [];
   const values = [];
@@ -279,6 +321,11 @@ app.get('/api/tickets', async (req, res) => {
     filters.push('t.isOpen = TRUE');
   } else if (status === 'closed') {
     filters.push('t.isOpen = FALSE');
+  }
+
+  if (!isStaffUser(req.user)) {
+    filters.push('t.user_id = ?');
+    values.push(req.user.id);
   }
 
   const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
@@ -335,6 +382,10 @@ app.patch('/api/tickets/:id/status', requireAuth, async (req, res) => {
     return res.status(400).json({ message: 'isOpen must be true or false.' });
   }
 
+  if (!isStaffUser(req.user)) {
+    return res.status(403).json({ message: 'Only support or admin accounts can change ticket status.' });
+  }
+
   try {
     const [result] = await getPool().query(
       loadSql('tickets.updateTicketStatus'),
@@ -356,10 +407,20 @@ app.patch('/api/tickets/:id/status', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/api/tickets/:id/comments', async (req, res) => {
+app.get('/api/tickets/:id/comments', requireAuth, async (req, res) => {
   const { id } = req.params;
 
   try {
+    const [[ticket]] = await getPool().query(loadSql('tickets.findTicketById'), [id]);
+
+    if (!ticket) {
+      return res.status(404).json({ message: 'Ticket not found.' });
+    }
+
+    if (!canAccessTicket(req.user, ticket)) {
+      return res.status(403).json({ message: 'You do not have access to this ticket.' });
+    }
+
     const [rows] = await getPool().query(
       loadSql('comments.listCommentsByTicketId'),
       [id],
@@ -383,6 +444,10 @@ app.post('/api/tickets/:id/comments', requireAuth, async (req, res) => {
 
     if (!ticket) {
       return res.status(404).json({ message: 'Ticket not found.' });
+    }
+
+    if (!canAccessTicket(req.user, ticket)) {
+      return res.status(403).json({ message: 'You do not have access to this ticket.' });
     }
 
     const [result] = await getPool().query(

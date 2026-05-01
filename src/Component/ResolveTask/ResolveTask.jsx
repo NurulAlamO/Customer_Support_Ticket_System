@@ -1,9 +1,11 @@
 import React from 'react';
 
-const ResolveTask = ({ resolved = [], activeTicketId, onSelectTicket, onReopenTicket }) => {
+const ResolveTask = ({ resolved = [], activeTicketId, onSelectTicket, onReopenTicket, role }) => {
   return (
     <div className="p-4">
-      <h1 className="mb-4 text-2xl font-bold text-slate-900">Closed Tickets</h1>
+      <h1 className="mb-4 text-2xl font-bold text-slate-900">
+        {role === 'Support' ? 'Closed Tickets' : 'My Closed Tickets'}
+      </h1>
 
       {resolved.length === 0 ? (
         <p className="mb-4 text-slate-600">There are no closed tickets yet.</p>

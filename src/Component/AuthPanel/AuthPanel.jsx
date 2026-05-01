@@ -18,10 +18,10 @@ const AuthPanel = ({
       </h2>
       <p className="mt-2 text-sm text-slate-700">
         {isRegister
-          ? 'Register to create tickets, add comments, and manage your support requests.'
+          ? 'Register as a customer to create tickets and follow only your own support requests.'
           : isForgotPassword
             ? 'Enter your account email and choose a new password to regain access.'
-            : 'Log in to create tickets, add comments, and manage ticket status.'}
+            : 'Customers sign in to their private ticket portal, while support and admin accounts sign in to the internal workspace.'}
       </p>
 
       <form className="mt-6 space-y-4" onSubmit={onSubmit}>
@@ -72,23 +72,6 @@ const AuthPanel = ({
             required
           />
         </label>
-
-        {isRegister ? (
-          <label className="form-control w-full">
-            <span className="label-text mb-2 block font-semibold 
-              text-slate-800">Role</span>
-            <select
-              className="select select-bordered w-full 
-                border-slate-300 text-slate-300"
-              name="role"
-              value={formData.role}
-              onChange={onChange}
-            >
-              <option value="Customer">Customer</option>
-              <option value="Support">Support</option>
-            </select>
-          </label>
-        ) : null}
 
         <div className="justify-center text-center gap-3 border-t 
           border-slate-200 pt-4 sm:flex-row sm:items-center 

@@ -19,6 +19,7 @@ const TicketDetails = ({
   onSubmitComment,
   submittingComment,
   onToggleStatus,
+  canManageStatus,
 }) => {
   if (!ticket) {
     return (
@@ -37,18 +38,22 @@ const TicketDetails = ({
           <p className="mt-1 text-sm text-slate-500">{ticket.userName} - {ticket.userRole}</p>
         </div>
 
-        <button
-          type="button"
-          className={`btn ${ticket.isOpen ? 'btn-success' : 'btn-outline'}`}
-          onClick={() => onToggleStatus(ticket)}
-          disabled={!currentUser}
-        >
-          {ticket.isOpen ? 'Close Ticket' : 'Reopen Ticket'}
-        </button>
+        {canManageStatus ? (
+          <button
+            type="button"
+            className={`btn ${ticket.isOpen ? 'btn-success' : 'btn-outline'}`}
+            onClick={() => onToggleStatus(ticket)}
+            disabled={!currentUser}
+          >
+            {ticket.isOpen ? 'Close Ticket' : 'Reopen Ticket'}
+          </button>
+        ) : null}
       </div>
 
       {!currentUser ? (
-        <p className="mt-3 text-sm text-slate-500">Log in to update ticket status or add comments.</p>
+        <p className="mt-3 text-sm text-slate-500">Log in to view and reply to ticket updates.</p>
+      ) : !canManageStatus ? (
+        <p className="mt-3 text-sm text-slate-500">Support controls are handled by the support team.</p>
       ) : null}
 
       <div className="mt-5 space-y-2 rounded-2xl bg-slate-50 p-4">
@@ -71,7 +76,7 @@ const TicketDetails = ({
             className="textarea textarea-bordered w-full min-h-28"
             value={commentMessage}
             onChange={(event) => onCommentChange(event.target.value)}
-            placeholder="Write a support update or internal note"
+            placeholder={canManageStatus ? 'Write a support update' : 'Reply to the support team'}
             required
             disabled={!currentUser}
           />

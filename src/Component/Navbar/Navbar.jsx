@@ -9,7 +9,9 @@ const Navbar = ({
   onAuthClick,
   onLogout,
   onAccountClick,
+  onAdminClick,
   onHomeClick,
+  canCreateTicket = true,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -76,6 +78,19 @@ const Navbar = ({
                         >
                           Account Settings
                         </button>
+                        {currentUser?.role === 'Admin' ? (
+                          <button
+                            className="btn w-full text-sm rounded-2xl"
+                            type="button"
+                            onClick={() => {
+                              setProfileOpen(false);
+                              setMenuOpen(false);
+                              onAdminClick();
+                            }}
+                          >
+                            Admin Panel
+                          </button>
+                        ) : null}
                         <button className="btn w-full text-sm rounded-2xl" type="button" onClick={onLogout}>
                           Logout
                         </button>
@@ -84,14 +99,16 @@ const Navbar = ({
                   </div>
                 ) : null}
 
-                <button
-                  className="btn btn-info flex items-center gap-2 px-4 py-2 mt-2 text-sm"
-                  type="button"
-                  onClick={onCreateClick}
-                >
-                  <img src={vectorImg} alt="icon" className="w-4 h-4" />
-                  New Ticket
-                </button>
+                {canCreateTicket ? (
+                  <button
+                    className="btn btn-info mt-2 flex items-center gap-2 px-4 py-2 text-sm"
+                    type="button"
+                    onClick={onCreateClick}
+                  >
+                    <img src={vectorImg} alt="icon" className="h-4 w-4" />
+                    New Ticket
+                  </button>
+                ) : null}
 
                 {currentUser ? (
                   null
@@ -113,14 +130,16 @@ const Navbar = ({
           </div>
 
           <div className="hidden items-center gap-3 sm:flex">
-             <button
-              className="btn btn-info flex items-center gap-2 px-4 py-2 text-sm sm:text-base"
-              type="button"
-              onClick={onCreateClick}
-            >
-              <img src={vectorImg} alt="icon" className="w-4 h-4" />
-              New Ticket
-            </button>
+            {canCreateTicket ? (
+              <button
+                className="btn btn-info flex items-center gap-2 px-4 py-2 text-sm sm:text-base"
+                type="button"
+                onClick={onCreateClick}
+              >
+                <img src={vectorImg} alt="icon" className="h-4 w-4" />
+                New Ticket
+              </button>
+            ) : null}
             {currentUser ? (
               <div className="relative">
                 <button
@@ -152,6 +171,18 @@ const Navbar = ({
                     >
                       Account Settings
                     </button>
+                    {currentUser?.role === 'Admin' ? (
+                      <button
+                        className="btn mb-2 w-full rounded-2xl"
+                        type="button"
+                        onClick={() => {
+                          setProfileOpen(false);
+                          onAdminClick();
+                        }}
+                      >
+                        Admin Panel
+                      </button>
+                    ) : null}
                     <button className="btn w-full rounded-2xl" type="button" onClick={onLogout}>
                       Logout
                     </button>

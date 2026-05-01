@@ -6,7 +6,8 @@ INSERT INTO users (id, name, email, password_hash, role) VALUES
   (3, 'Michael Brown', 'michael@example.com', 'sha256:ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', 'Customer'),
   (4, 'Sophia Williams', 'sophia@example.com', 'sha256:ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', 'Customer'),
   (5, 'Olivia Davis', 'olivia@example.com', 'sha256:ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', 'Customer'),
-  (6, 'Support Agent', 'support@example.com', 'sha256:a67d22cef2f6639d71b8901b5b2bbee4a2400d92c70e60c179c0fd76d72d6c23', 'Support')
+  (6, 'Support Agent', 'support@example.com', 'sha256:a67d22cef2f6639d71b8901b5b2bbee4a2400d92c70e60c179c0fd76d72d6c23', 'Support'),
+  (7, 'System Admin', 'admin@example.com', 'sha256:240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', 'Admin')
 ON DUPLICATE KEY UPDATE
   name = VALUES(name),
   email = VALUES(email),

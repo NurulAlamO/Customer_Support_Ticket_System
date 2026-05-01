@@ -1,11 +1,11 @@
 import React from 'react';
 
-const CreateTicketForm = ({ currentUser, formData, onChange, onSubmit, submitting }) => {
+const CreateTicketForm = ({ currentUser, formData, onChange, onSubmit, submitting, isStaff }) => {
   return (
     <div>
       <h2 className="text-2xl font-bold text-slate-900">Create a Ticket</h2>
       <p className="mt-2 text-sm text-slate-500">
-        Submit a new support request and save it to the database.
+        Submit a new support request for your own account.
       </p>
 
       <form className="mt-6 space-y-4" onSubmit={onSubmit}>
@@ -57,18 +57,19 @@ const CreateTicketForm = ({ currentUser, formData, onChange, onSubmit, submittin
                 {/* <p className="text-sm text-slate-600">{currentUser.email}</p> */}
               </>
             ) : (
-              <p className="mt-2 text-sm text-slate-500">Log in to create a ticket.</p>
+              <p className="mt-2 text-sm text-slate-500">Log in as a customer to create a ticket.</p>
             )}
           </div>
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-4">
           <p className="text-sm text-slate-500">
-            Fill in the details and create a new customer support ticket.</p>
+            Fill in the details and create a new customer support ticket.
+          </p>
           <button
             type="submit"
             className="btn btn-info min-w-32"
-            disabled={submitting || !currentUser}
+            disabled={submitting || !currentUser || isStaff}
           >
             {submitting ? 'Saving...' : 'Add Ticket'}
           </button>

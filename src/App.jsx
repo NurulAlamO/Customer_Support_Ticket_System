@@ -11,6 +11,7 @@ import CreateTicketForm from './Component/CreateTicketForm/CreateTicketForm';
 import TicketDetails from './Component/TicketDetails/TicketDetails';
 import AuthPanel from './Component/AuthPanel/AuthPanel';
 import AccountSettings from './Component/AccountSettings/AccountSettings';
+import AdminPanel from './Component/AdminPanel/AdminPanel';
 import 'react-toastify/dist/ReactToastify.css';
 
 const authStorageKey = 'ticket-system-auth-token';
@@ -25,7 +26,6 @@ const initialAuthForm = {
   name: '',
   email: '',
   password: '',
-  role: 'Customer',
 };
 
 const initialProfileForm = {
@@ -36,7 +36,22 @@ const initialProfileForm = {
 const priorityOptions = new Set(['High', 'Medium', 'Low']);
 
 async function parseJson(response, fallbackMessage) {
-  const data = await response.json();
+  const contentType = response.headers.get('content-type') || '';
+  const rawBody = await response.text();
+  let data = {};
+
+  if (rawBody) {
+    if (contentType.includes('application/json')) {
+      try {
+        data = JSON.parse(rawBody);
+      } catch {
+        throw new Error('The server returned invalid JSON.');
+      }
+    } else {
+      throw new Error(rawBody.trim() || fallbackMessage);
+    }
+  }
+
   if (!response.ok) {
     throw new Error(data.message || fallbackMessage);
   }
@@ -56,7 +71,7 @@ function App() {
   const [authToken, setAuthToken] = useState(() => localStorage.getItem(authStorageKey) || '');
   const [checkingAuth, setCheckingAuth] = useState(() => Boolean(localStorage.getItem(authStorageKey)));
   const [commentMessage, setCommentMessage] = useState('');
-  const [loadingTickets, setLoadingTickets] = useState(true);
+  const [loadingTickets, setLoadingTickets] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
   const [submittingTicket, setSubmittingTicket] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
@@ -64,9 +79,15 @@ function App() {
   const [profileForm, setProfileForm] = useState(initialProfileForm);
   const [submittingProfile, setSubmittingProfile] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [currentPage, setCurrentPage] = useState('dashboard');
   const formRef = useRef(null);
   const authRef = useRef(null);
+
+  const isSupport = currentUser?.role === 'Support';
+  const isAdmin = currentUser?.role === 'Admin';
+  const isStaff = isSupport || isAdmin;
 
   function getAuthHeaders() {
     return authToken
@@ -84,7 +105,15 @@ function App() {
 
     const query = params.toString();
     const url = query ? `/api/tickets?${query}` : '/api/tickets';
-    return parseJson(await fetch(url), 'Unable to load tickets.');
+
+    return parseJson(
+      await fetch(url, {
+        headers: {
+          ...getAuthHeaders(),
+        },
+      }),
+      'Unable to load tickets.',
+    );
   }
 
   useEffect(() => {
@@ -122,6 +151,14 @@ function App() {
   }, [authToken]);
 
   useEffect(() => {
+    if (!currentUser) {
+      setTickets([]);
+      setComments([]);
+      setSelectedTicketId(null);
+      setLoadingTickets(false);
+      return;
+    }
+
     const run = async () => {
       setLoadingTickets(true);
 
@@ -136,7 +173,7 @@ function App() {
     };
 
     run();
-  }, [priorityFilter]);
+  }, [currentUser, priorityFilter]);
 
   useEffect(() => {
     if (!tickets.length) {
@@ -151,7 +188,7 @@ function App() {
   }, [tickets]);
 
   useEffect(() => {
-    if (!selectedTicketId) {
+    if (!currentUser || !selectedTicketId) {
       setComments([]);
       return;
     }
@@ -161,7 +198,11 @@ function App() {
 
       try {
         const data = await parseJson(
-          await fetch(`/api/tickets/${selectedTicketId}/comments`),
+          await fetch(`/api/tickets/${selectedTicketId}/comments`, {
+            headers: {
+              ...getAuthHeaders(),
+            },
+          }),
           'Unable to load comments.',
         );
         setComments(data);
@@ -173,13 +214,45 @@ function App() {
     };
 
     run();
-  }, [selectedTicketId]);
+  }, [currentUser, selectedTicketId]);
+
+  useEffect(() => {
+    if (!currentUser || !isAdmin || currentPage !== 'admin') {
+      return;
+    }
+
+    const run = async () => {
+      setLoadingUsers(true);
+
+      try {
+        const data = await parseJson(
+          await fetch('/api/users', {
+            headers: {
+              ...getAuthHeaders(),
+            },
+          }),
+          'Unable to load users.',
+        );
+        setUsers(data);
+      } catch (error) {
+        toast.error(error.message);
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+
+    run();
+  }, [currentPage, currentUser, isAdmin]);
 
   const selectedTicket = tickets.find((ticket) => ticket.id === selectedTicketId) || null;
   const openTickets = tickets.filter((ticket) => ticket.isOpen);
   const closedTickets = tickets.filter((ticket) => !ticket.isOpen);
 
   async function refreshTickets() {
+    if (!currentUser) {
+      return;
+    }
+
     setLoadingTickets(true);
 
     try {
@@ -278,13 +351,14 @@ function App() {
       setPriorityFilter('All');
       setSelectedTicketId(null);
       setTicketForm(initialTicketForm);
-      toast.success(authMode === 'register' ? 'Account created successfully.' : 'Logged in successfully.');
+      toast.success(authMode === 'register' ? 'Customer account created successfully.' : 'Logged in successfully.');
     } catch (error) {
-      toast(error.message);
+      toast.error(error.message);
     } finally {
       setSubmittingAuth(false);
     }
   }
+
   async function handleLogout() {
     try {
       if (authToken) {
@@ -302,6 +376,7 @@ function App() {
       setProfileForm(initialProfileForm);
       setPriorityFilter('All');
       setSelectedTicketId(null);
+      setComments([]);
       setAuthMode('login');
       setCurrentPage('dashboard');
       toast.success('Logged out successfully.');
@@ -388,6 +463,11 @@ function App() {
       return;
     }
 
+    if (isStaff) {
+      toast.error('Staff accounts cannot create customer tickets.');
+      return;
+    }
+
     if (!priorityOptions.has(ticketForm.priority)) {
       toast.error('Choose a valid priority.');
       return;
@@ -430,6 +510,11 @@ function App() {
     if (!currentUser) {
       toast.error('Please log in to update ticket status.');
       authRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    if (!isStaff) {
+      toast.error('Only support or admin accounts can change ticket status.');
       return;
     }
 
@@ -517,18 +602,17 @@ function App() {
     setCurrentPage('dashboard');
   }
 
+  function openAdminPage() {
+    setCurrentPage('admin');
+  }
+
   if (checkingAuth) {
     return (
       <>
-        <main className="flex min-h-screen items-center 
-          justify-center bg-slate-100 px-4">
-          <div className="w-full max-w-md rounded-3xl 
-            border border-slate-200 bg-white p-8 
-            text-center shadow-sm">
-            <h1 className="text-2xl font-bold 
-              text-slate-900">Checking Your Session</h1>
-            <p className="mt-3 text-slate-500">
-              Please wait while we sign you in.</p>
+        <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+            <h1 className="text-2xl font-bold text-slate-900">Checking Your Session</h1>
+            <p className="mt-3 text-slate-500">Please wait while we sign you in.</p>
           </div>
         </main>
         <ToastContainer position="bottom-right" />
@@ -539,58 +623,49 @@ function App() {
   if (!currentUser) {
     return (
       <>
-      <Navbar
+        <Navbar
           onCreateClick={scrollToCreateForm}
           currentUser={currentUser}
           onAuthClick={scrollToAuthForm}
           onLogout={handleLogout}
           onAccountClick={openAccountPage}
+          onAdminClick={openAdminPage}
           onHomeClick={openDashboardPage}
+          canCreateTicket={false}
         />
         <main className="min-h-screen bg-slate-100 px-4 py-10">
-          <div className="mx-auto grid max-w-[1100px] 
-            gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-            <section className="rounded-[32px] bg-gradient-to-br 
-              from-sky-900 via-sky-700
-              to-emerald-500 p-8 text-white shadow-xl">
-              <p className="text-sm font-semibold uppercase 
-                tracking-[0.2em] text-sky-100">
+          <div className="mx-auto grid max-w-[1100px] gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+            <section className="rounded-[32px] bg-gradient-to-br from-sky-900 via-sky-700 to-emerald-500 p-8 text-white shadow-xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-100">
                 Customer Support Ticket System
               </p>
               <h1 className="mt-4 text-4xl font-bold leading-tight">
-                Log in to access your support dashboard.
+                Customer portal and support workspace.
               </h1>
               <p className="mt-4 max-w-xl text-base text-white">
-                Create tickets, add comments, update ticket status, and manage support requests
-                from one secure workspace.
+                Customers can sign up, create tickets, and only see their own requests. Support
+                and admin accounts sign in to the internal workspace with elevated access.
               </p>
 
               <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                <div className="rounded-2xl bg-white/16 p-4 
-                  backdrop-blur-sm">
-                  <p className="text-3xl font-bold">24/7</p>
-                  <p className="mt-2 text-sm 
-                    text-white">Track tickets anytime</p>
+                <div className="rounded-2xl bg-white/16 p-4 backdrop-blur-sm">
+                  <p className="text-3xl font-bold">Private</p>
+                  <p className="mt-2 text-sm text-white">Each customer only sees their own tickets</p>
                 </div>
-                <div className="rounded-2xl bg-white/16 
-                  p-4 backdrop-blur-sm">
-                  <p className="text-3xl font-bold">3</p>
-                  <p className="mt-2 text-sm text-white">
-                    Priority levels supported</p>
+                <div className="rounded-2xl bg-white/16 p-4 backdrop-blur-sm">
+                  <p className="text-3xl font-bold">Support</p>
+                  <p className="mt-2 text-sm text-white">Agents get a dedicated queue and controls</p>
                 </div>
-                <div className="rounded-2xl bg-white/16 p-4 
-                  backdrop-blur-sm">
-                  <p className="text-3xl font-bold">1</p>
-                  <p className="mt-2 text-sm 
-                    text-white">Shared support workspace</p>
+                <div className="rounded-2xl bg-white/16 p-4 backdrop-blur-sm">
+                  <p className="text-3xl font-bold">Secure</p>
+                  <p className="mt-2 text-sm text-white">Ticket access is now enforced by role</p>
                 </div>
               </div>
             </section>
 
             <section
               ref={authRef}
-              className="rounded-[32px] border border-slate-200 
-              bg-white p-6 shadow-lg sm:p-8"
+              className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-lg sm:p-8"
             >
               <AuthPanel
                 mode={authMode}
@@ -617,7 +692,9 @@ function App() {
           onAuthClick={scrollToAuthForm}
           onLogout={handleLogout}
           onAccountClick={openAccountPage}
+          onAdminClick={openAdminPage}
           onHomeClick={openDashboardPage}
+          canCreateTicket={!isStaff}
         />
         <AccountSettings
           currentUser={currentUser}
@@ -628,6 +705,31 @@ function App() {
           onBack={openDashboardPage}
           submittingProfile={submittingProfile}
           deletingAccount={deletingAccount}
+          isStaff={isStaff}
+        />
+        <ToastContainer position="bottom-right" />
+      </>
+    );
+  }
+
+  if (currentPage === 'admin' && isAdmin) {
+    return (
+      <>
+        <Navbar
+          onCreateClick={scrollToCreateForm}
+          currentUser={currentUser}
+          onAuthClick={scrollToAuthForm}
+          onLogout={handleLogout}
+          onAccountClick={openAccountPage}
+          onAdminClick={openAdminPage}
+          onHomeClick={openDashboardPage}
+          canCreateTicket={false}
+        />
+        <AdminPanel
+          currentUser={currentUser}
+          users={users}
+          loadingUsers={loadingUsers}
+          onBack={openDashboardPage}
         />
         <ToastContainer position="bottom-right" />
       </>
@@ -642,27 +744,32 @@ function App() {
         onAuthClick={scrollToAuthForm}
         onLogout={handleLogout}
         onAccountClick={openAccountPage}
+        onAdminClick={openAdminPage}
         onHomeClick={openDashboardPage}
+        canCreateTicket={!isStaff}
       />
-      <Banner inProgress={openTickets} resolved={closedTickets} />
+      <Banner
+        inProgress={openTickets}
+        resolved={closedTickets}
+        role={currentUser.role}
+      />
 
       <main className="mx-auto max-w-[1200px] space-y-8 px-4 pb-10">
-        <section className="rounded-3xl border border-slate-200 
-          bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-3 md:flex-row 
-            md:items-center md:justify-between">
+        <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <h1 className="text-2xl font-bold text-slate-900">
-                Customer Support Tickets</h1>
+                {isStaff ? 'Staff Workspace' : 'My Support Tickets'}
+              </h1>
               <p className="text-sm text-slate-500">
-                Track support requests, update statuses, and manage comments from one place.
+                {isStaff
+                  ? 'Manage customer tickets, reply to updates, and close or reopen requests.'
+                  : 'Review your own support requests, follow replies, and create new tickets.'}
               </p>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row 
-              sm:items-center">
-              <label className="flex items-center gap-2 text-sm 
-                font-medium text-slate-600">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-600">
                 Priority
                 <select
                   value={priorityFilter}
@@ -676,75 +783,113 @@ function App() {
                 </select>
               </label>
 
-              <button type="button" className="btn btn-outline 
-                btn-sm" onClick={refreshTickets}>
+              <button type="button" className="btn btn-outline btn-sm" onClick={refreshTickets}>
                 Refresh
               </button>
             </div>
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[1.45fr_0.85fr]">
-          <div className="rounded-3xl border border-slate-200 
-            bg-white p-4 shadow-sm">
-            <TicketList
-              tickets={tickets}
-              loading={loadingTickets}
-              selectedTicketId={selectedTicketId}
-              handleAddToProgress={handleSelectTicket}
-            />
-          </div>
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-slate-200 
-              bg-white shadow-sm">
-              <TaskCard
-                handleComplete={(ticketId) => handleUpdateTicketStatus(ticketId, false)}
-                inProgress={openTickets}
-                activeTicketId={selectedTicketId}
-                onSelectTicket={handleSelectTicket}
+        {isStaff ? (
+          <section className="grid gap-6 lg:grid-cols-[1.45fr_0.85fr]">
+            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <TicketList
+                tickets={tickets}
+                loading={loadingTickets}
+                selectedTicketId={selectedTicketId}
+                handleAddToProgress={handleSelectTicket}
+                role={currentUser.role}
               />
             </div>
+            <div className="space-y-6">
+              <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <TaskCard
+                  handleComplete={(ticketId) => handleUpdateTicketStatus(ticketId, false)}
+                  inProgress={openTickets}
+                  activeTicketId={selectedTicketId}
+                  onSelectTicket={handleSelectTicket}
+                  role={currentUser.role}
+                />
+              </div>
 
-            <div className="rounded-3xl border border-slate-200 
-              bg-white shadow-sm">
-              <ResolveTask
-                resolved={closedTickets}
-                activeTicketId={selectedTicketId}
-                onSelectTicket={handleSelectTicket}
-                onReopenTicket={(ticketId) => handleUpdateTicketStatus(ticketId, true)}
+              <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <ResolveTask
+                  resolved={closedTickets}
+                  activeTicketId={selectedTicketId}
+                  onSelectTicket={handleSelectTicket}
+                  onReopenTicket={(ticketId) => handleUpdateTicketStatus(ticketId, true)}
+                  role={currentUser.role}
+                />
+              </div>
+            </div>
+          </section>
+        ) : (
+          <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <TicketList
+                tickets={tickets}
+                loading={loadingTickets}
+                selectedTicketId={selectedTicketId}
+                handleAddToProgress={handleSelectTicket}
+                role={currentUser.role}
               />
             </div>
-          </div>
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <TicketDetails
+                ticket={selectedTicket}
+                currentUser={currentUser}
+                comments={comments}
+                loadingComments={loadingComments}
+                commentMessage={commentMessage}
+                onCommentChange={setCommentMessage}
+                onSubmitComment={handleAddComment}
+                submittingComment={submittingComment}
+                onToggleStatus={(ticket) => handleUpdateTicketStatus(ticket.id, !ticket.isOpen)}
+                canManageStatus={isStaff}
+              />
+            </div>
+          </section>
+        )}
+
+        <section className={`grid gap-6 ${isStaff ? 'lg:grid-cols-2' : ''}`}>
+          {!isStaff ? (
+            <div ref={formRef} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <CreateTicketForm
+                currentUser={currentUser}
+                formData={ticketForm}
+                onChange={handleTicketFormChange}
+                onSubmit={handleCreateTicket}
+                submitting={submittingTicket}
+                isStaff={isStaff}
+              />
+            </div>
+          ) : (
+            <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-6 shadow-sm">
+              <h2 className="text-2xl font-bold text-slate-900">Internal Workspace</h2>
+              <p className="mt-2 text-sm text-slate-600">
+                This area is reserved for support and admin accounts. Customer accounts cannot see
+                the global queue, and staff accounts cannot create customer-side tickets.
+              </p>
+            </div>
+          )}
+
+          {isStaff ? (
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <TicketDetails
+                ticket={selectedTicket}
+                currentUser={currentUser}
+                comments={comments}
+                loadingComments={loadingComments}
+                commentMessage={commentMessage}
+                onCommentChange={setCommentMessage}
+                onSubmitComment={handleAddComment}
+                submittingComment={submittingComment}
+                onToggleStatus={(ticket) => handleUpdateTicketStatus(ticket.id, !ticket.isOpen)}
+                canManageStatus={isStaff}
+              />
+            </div>
+          ) : null}
         </section>
-
-        <section className="grid gap-6 lg:grid-cols-2">
-          <div ref={formRef} className="rounded-3xl border 
-            border-slate-200 bg-white p-6 shadow-sm">
-            <CreateTicketForm
-              currentUser={currentUser}
-              formData={ticketForm}
-              onChange={handleTicketFormChange}
-              onSubmit={handleCreateTicket}
-              submitting={submittingTicket}
-            />
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 
-            bg-white p-6 shadow-sm">
-            <TicketDetails
-              ticket={selectedTicket}
-              currentUser={currentUser}
-              comments={comments}
-              loadingComments={loadingComments}
-              commentMessage={commentMessage}
-              onCommentChange={setCommentMessage}
-              onSubmitComment={handleAddComment}
-              submittingComment={submittingComment}
-              onToggleStatus={(ticket) => handleUpdateTicketStatus(ticket.id, !ticket.isOpen)}
-            />
-          </div>
-        </section>
-
       </main>
 
       <Footer />

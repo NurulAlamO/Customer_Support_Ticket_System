@@ -187,7 +187,9 @@ GROUP BY t.id, u.name, u.role;
 
 -- name: tickets.findTicketById
 -- ticket exist করে কিনা check
-SELECT id
+SELECT
+  id,
+  user_id AS userId
 FROM tickets
 WHERE id = ?;
 
@@ -235,6 +237,15 @@ WHERE id = ?
     OR email IS NULL
     OR email = ''
   );
+
+-- name: db.upsertSeedUser
+INSERT INTO users (id, name, email, password_hash, role)
+VALUES (?, ?, ?, ?, ?)
+ON DUPLICATE KEY UPDATE
+  name = VALUES(name),
+  email = VALUES(email),
+  password_hash = VALUES(password_hash),
+  role = VALUES(role);
 
 -- name: db.showEmailColumn
 -- column আছে কিনা check

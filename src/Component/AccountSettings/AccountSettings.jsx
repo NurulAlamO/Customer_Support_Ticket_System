@@ -9,6 +9,7 @@ const AccountSettings = ({
   onBack,
   submittingProfile,
   deletingAccount,
+  isStaff,
 }) => (
   <main className="min-h-screen bg-slate-100 px-4 py-10">
     <div className="mx-auto max-w-4xl">
@@ -33,8 +34,9 @@ const AccountSettings = ({
             Keep your account details up to date.
           </h1>
           <p className="mt-4 text-sm text-white/90">
-            Update the information shown on your workspace, or permanently remove your account if
-            you no longer want to use this system.
+            {isStaff
+              ? 'Your staff login email and password are managed by the developer. You can still update your display name for the workspace.'
+              : 'Update the information shown on your workspace, or permanently remove your account if you no longer want to use this system.'}
           </p>
 
           <div className="mt-8 space-y-4">
@@ -81,6 +83,7 @@ const AccountSettings = ({
                 onChange={onChange}
                 placeholder="Enter your email"
                 required
+                disabled={isStaff}
               />
             </label>
 
@@ -89,14 +92,18 @@ const AccountSettings = ({
                 {submittingProfile ? 'Saving...' : 'Save Profile'}
               </button>
 
-              <button
-                type="button"
-                className="btn btn-outline btn-error"
-                onClick={onDeleteAccount}
-                disabled={deletingAccount}
-              >
-                {deletingAccount ? 'Deleting...' : 'Delete Account'}
-              </button>
+              {isStaff ? (
+                <p className="text-sm text-slate-500">Staff credentials can only be changed by the developer.</p>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-outline btn-error"
+                  onClick={onDeleteAccount}
+                  disabled={deletingAccount}
+                >
+                  {deletingAccount ? 'Deleting...' : 'Delete Account'}
+                </button>
+              )}
             </div>
           </form>
         </section>
